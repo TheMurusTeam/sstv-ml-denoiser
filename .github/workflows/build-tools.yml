@@ -41,7 +41,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build (universal: Apple Silicon and Intel)
+      - name: "Build (universal: Apple Silicon and Intel)"
         run: make CFLAGS="-O3 -ffast-math -arch arm64 -arch x86_64 -mmacosx-version-min=11.0"
       - name: Test
         run: ./.github/workflows/smoke_test.sh
@@ -63,7 +63,7 @@ jobs:
         with:
           msystem: UCRT64
           install: make zip mingw-w64-ucrt-x86_64-gcc
-      - name: Build (static: no DLL needed)
+      - name: "Build (static: no DLL needed)"
         run: make CFLAGS="-O3 -ffast-math" LDFLAGS="-static"
       - name: Test
         run: ./.github/workflows/smoke_test.sh
