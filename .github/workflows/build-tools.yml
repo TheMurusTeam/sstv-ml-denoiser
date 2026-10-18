@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Builds the two C tools (bin/sstv_channel_sim, bin/sstv_denoise_tool) for
+# Windows, macOS and Linux, so that users do not need a C compiler.
+#
+#   - on every push and pull request: builds and runs a short test; the
+#     zips are kept as workflow artifacts (Actions tab -> the run -> Artifacts);
+#   - on a tag like v1.0: the zips are attached to the GitHub Release.
+#
+# Each zip holds a bin/ folder: unzip it at the top of the repository.
+
+name: build-tools
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write          # needed to attach the zips to a release
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: make CFLAGS="-O3 -ffast-math" LDFLAGS="-static"
+      - name: Test
+        run: ./.github/workflows/smoke_test.sh
+      - name: Zip
+        run: zip -r tools-linux-x64.zip bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-linux-x64
+          path: tools-linux-x64.zip
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (universal: Apple Silicon and Intel)
+        run: make CFLAGS="-O3 -ffast-math -arch arm64 -arch x86_64 -mmacosx-version-min=11.0"
+      - name: Test
+        run: ./.github/workflows/smoke_test.sh
+      - name: Zip
+        run: zip -r tools-macos-universal.zip bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-macos-universal
+          path: tools-macos-universal.zip
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: make zip mingw-w64-ucrt-x86_64-gcc
+      - name: Build (static: no DLL needed)
+        run: make CFLAGS="-O3 -ffast-math" LDFLAGS="-static"
+      - name: Test
+        run: ./.github/workflows/smoke_test.sh
+      - name: Zip
+        run: zip -r tools-windows-x64.zip bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-windows-x64
+          path: tools-windows-x64.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            tools-linux-x64.zip
+            tools-macos-universal.zip
+            tools-windows-x64.zip

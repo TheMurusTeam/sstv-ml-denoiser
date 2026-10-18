@@ -1,0 +1,7 @@
+# Line endings that work on every system, whatever git does on checkout
+*.sh   text eol=lf
+*.py   text eol=lf
+*.bat  text eol=crlf
+*.bin  binary
+*.png  binary
+*.jpg  binary

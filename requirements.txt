@@ -1,0 +1,5 @@
+# Python packages for every step except the training
+numpy>=1.24
+Pillow>=10.0
+# For the training (3_train) PyTorch is also needed: see 3_train/README.md,
+# the right version depends on the computer (Apple GPU, Nvidia card, CPU).

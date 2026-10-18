@@ -1,0 +1,19 @@
+# Built tools (make, or the zips of the GitHub Releases)
+bin/
+
+# Folders made by the scripts (all in capitals): they can be deleted and
+# made again at any time
+DATA/
+TEST_SET/
+TRAINED/
+RESULTS/
+PICTURES_320/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# System files
+.DS_Store
+Thumbs.db
