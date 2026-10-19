@@ -25,12 +25,15 @@ import numpy as np
 import sstvml
 
 CLASSIC = "classic"
+DETAIL = "ALL detail"       # the mean gain on the detail pixels only (text, lines, edges)
 
 
 def case_order(case):
-    """ALL first, then plain noise, bursts, impulses, fading; each by SNR"""
+    """ALL and ALL detail first, then plain noise, bursts, impulses, fading; each by SNR"""
     if case == "ALL":
         return (0, 0, "")
+    if case == DETAIL:
+        return (0, 1, "")
     kinds = ["", "burst", "impulses", "fading"]
     kind = case.rsplit("snr", 1)[0].rstrip("_")
     m = re.search(r"snr(-?\d+)", case)
@@ -67,20 +70,32 @@ def clean_with_all(models, labels, set_path, work, jobs, with_classic=True):
 
 def score_set(models, labels, set_path, work, jobs):
     """Returns {"cases": {case: {"received": dB, "classic": gain, label: gain}},
-                "count": {case: n}, "clean": {label: (mean dB, worst dB)}}"""
+                "count": {case: n}, "clean": {label: (mean dB, worst dB)}}
+
+    Besides one row per noise case and "ALL", the row "ALL detail" is the
+    same mean measured only on the detail pixels of each picture
+    (sstvml.detail_mask of the clean picture: text, thin lines, edges).  A
+    denoiser that softens letters loses more here than in "ALL"."""
     pairs, cleans, names = clean_with_all(models, labels, set_path, work, jobs)
     gains = collections.defaultdict(lambda: collections.defaultdict(list))
-    targets = {}
+    targets, masks = {}, {}
     for noisy, clean, case in pairs:
         if clean not in targets:
             targets[clean] = sstvml.load_rgb(clean)
-        t = targets[clean]
-        base = sstvml.psnr(sstvml.load_rgb(noisy), t)
+            masks[clean] = sstvml.detail_mask(targets[clean])
+        t, m = targets[clean], masks[clean]
+        rx = sstvml.load_rgb(noisy)
+        base = sstvml.psnr(rx, t)
+        base_d = sstvml.psnr_masked(rx, t, m)
+        outs = {n: sstvml.load_rgb(os.path.join(work, n, "noisy", os.path.basename(noisy))) for n in names}
         for key in ("ALL", case):
             gains[key]["received"].append(base)
             for name in names:
-                out = sstvml.load_rgb(os.path.join(work, name, "noisy", os.path.basename(noisy)))
-                gains[key][name].append(sstvml.psnr(out, t) - base)
+                gains[key][name].append(sstvml.psnr(outs[name], t) - base)
+        if base_d is not None:              # a picture without any detail is left out of this row
+            gains[DETAIL]["received"].append(base_d)
+            for name in names:
+                gains[DETAIL][name].append(sstvml.psnr_masked(outs[name], t, m) - base_d)
     cases = {k: {n: float(np.mean(v)) for n, v in g.items()} for k, g in gains.items()}
     count = {k: len(g["received"]) for k, g in gains.items()}
     clean_scores = {}

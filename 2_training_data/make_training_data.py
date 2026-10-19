@@ -4,11 +4,16 @@
 """
 Step 2 - makes the training data from your pictures.
 
-    python3 2_training_data/make_training_data.py --pictures FOLDER_OF_PICTURES
+    python3 2_training_data/make_training_data.py --pictures FOLDER [FOLDER ...]
 
-FOLDER_OF_PICTURES: any pictures (PNG, JPG, ...), any size and shape, in one
-folder (subfolders are not read).  A few hundred varied pictures is a good
-start; more and more varied is better.
+FOLDER: any pictures (PNG, JPG, ...), any size and shape (subfolders are not
+read).  Several folders can be given, for example your photos, your QSL
+cards and the text pictures of make_text_pictures.py:
+
+    python3 2_training_data/make_training_data.py --pictures ~/photos ~/qsl PICTURES_TEXT
+
+A few hundred varied pictures is a good start; more and more varied is
+better.
 
 What it does:
 
@@ -86,7 +91,8 @@ def test_fingerprints():
 
 def main():
     ap = argparse.ArgumentParser(description="Step 2: makes DATA/clean and DATA/noisy for the training")
-    ap.add_argument("--pictures", required=True, help="folder with your training pictures (any size)")
+    ap.add_argument("--pictures", required=True, nargs="+",
+                    help="one or more folders with your training pictures (any size)")
     ap.add_argument("--out", default=sstvml.DATA, help="output folder (default DATA at the top of the package)")
     ap.add_argument("--modes-per-picture", type=int, default=2, help="SSTV modes per picture (default 2)")
     ap.add_argument("--variants", type=int, default=5, help="noisy receptions per picture and mode (default 5)")
@@ -98,9 +104,13 @@ def main():
     a = ap.parse_args()
     sstvml.tool("sstv_channel_sim")
 
-    files = sstvml.list_pictures(a.pictures)
-    if not files:
-        sys.exit("no pictures in %s" % a.pictures)
+    files = []
+    for folder in a.pictures:
+        found = sstvml.list_pictures(folder)
+        if not found:
+            sys.exit("no pictures in %s" % folder)
+        print("%5d pictures in %s" % (len(found), folder))
+        files += found
     test_fps = []
     if not a.no_test_check:
         test_fps = test_fingerprints()

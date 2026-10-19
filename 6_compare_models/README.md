@@ -18,7 +18,8 @@ folder too, for example `20x6 (models)` and `20x6 (20x6)`.
 `RESULTS/compare_models/index.html` opens in the browser at the end:
 
 1. **Scores** on each test set, as step 4 prints them, one column per
-   model plus the classic denoiser. The best of each row is in green.
+   model plus the classic denoiser, with the `ALL detail` row (the gain on
+   text, thin lines and edges only). The best of each row is in green.
 2. **One reception per test picture**, the same for every model (by
    default `snr3` in Martin M1, noisy enough to show the differences):
 

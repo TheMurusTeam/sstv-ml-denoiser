@@ -20,7 +20,7 @@ pictures here is the same code that runs in the radio.
 | Folder | Step | What you get |
 |---|---|---|
 | `1_test_set/` | **1. Test sets**: the reference pictures (given) and yours, brought to 320×256 and received through SSTV | `TEST_SET/` |
-| `2_training_data/` | **2. Training data**: your pictures, brought to 320×256, received with and without noise | `DATA/clean`, `DATA/noisy` |
+| `2_training_data/` | **2. Training data**: your pictures, brought to 320×256, received with and without noise; optionally pictures full of text | `DATA/clean`, `DATA/noisy` |
 | `3_train/` | **3. Training** with PyTorch (Mac GPU, Nvidia card) – channels, layers, steps explained | `TRAINED/<C>x<L>/sstv_dnn_<C>x<L>.bin` |
 | `4_check_and_score/` | **4. Check** that the C code matches PyTorch, and **score** models on the test sets | tables, `RESULTS/scores/` |
 | `5_real_pictures/` | **5. Real pictures**: a model on SSTV pictures you received, as the radio uses it | `RESULTS/real_pictures/…/index.html` |
@@ -31,7 +31,7 @@ pictures here is the same code that runs in the radio.
 | `common/` | Python code shared by the steps | |
 
 Each folder has its own README with all the details. Folders in **CAPITALS**
-(`DATA`, `TEST_SET`, `TRAINED`, `RESULTS`) are made by the scripts at the
+(`DATA`, `TEST_SET`, `TRAINED`, `RESULTS`, `PICTURES_TEXT`) are made by the scripts at the
 top of the package: they can be deleted and made again at any time.
 
 ## What you need
@@ -80,7 +80,7 @@ From the top of the package (macOS / Linux; on Windows `python` instead of `pyth
     # 2. the training data, from a folder of your pictures (a few hundred, any size)
     python3 2_training_data/make_training_data.py --pictures ~/Pictures/for_training
 
-    # 3. the training: a one-minute check, then the real thing (hours)
+    # 3. the training: a one-minute check, then the real thing (15-20 minutes on nvidia RTX 5070, 2 hours on Apple M4 Pro)
     python3 3_train/train.py --selftest
     python3 4_check_and_score/check_c_matches_pytorch.py TRAINED/selftest
     3_train/train_mac_linux.sh                # Windows + Nvidia: double click 3_train\train_windows.bat

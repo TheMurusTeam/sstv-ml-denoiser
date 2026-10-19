@@ -13,7 +13,9 @@ the reference one is the one to compare with other people.
 
 What it prints, for each test set
     one row per kind of noise (snr0 ... burst_snr12 ...), and ALL = the mean
-    over every noisy picture, THE number to compare:
+    over every noisy picture, THE number to compare; ALL detail = the same
+    mean measured only on the detail of the pictures (text, thin lines,
+    edges: sstvml.detail_mask), where softening shows most:
       received   PSNR of the received picture against the clean one, in dB
                  (higher = closer to the clean picture)
       classic    dB the classic denoiser adds to it

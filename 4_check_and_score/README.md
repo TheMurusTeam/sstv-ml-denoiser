@@ -31,6 +31,7 @@ with the C code, and is compared with the clean picture. The classic
     === test set reference (TEST_SET/reference)
     noise                n  received     classic        20x6        16x7
     ALL                158    19.57       +5.24       +9.15       +8.66
+    ALL detail         158    19.32       +2.41       +4.52       ...
     snr0                11    12.70       +5.90      +11.64      +11.49
     snr3                21    15.72       +6.00      +10.53      +10.31
     ...
@@ -39,7 +40,7 @@ with the C code, and is compared with the clean picture. The classic
 
 | Column | What |
 |---|---|
-| `noise` | the noise case (see `1_test_set/README.md`); **`ALL`** is the mean over every noisy picture: **the number to compare** |
+| `noise` | the noise case (see `1_test_set/README.md`); **`ALL`** is the mean over every noisy picture: **the number to compare**. **`ALL detail`** is the same mean measured only on the **detail** of each picture: the pixels next to a strong brightness step in the clean picture – letters, thin lines, contours (`detail_mask` in `common/sstvml.py`). A denoiser that softens text loses much more here than in `ALL` |
 | `n` | how many pictures |
 | `received` | PSNR of the received picture against the clean one, in dB: how close it is (higher = closer) |
 | `classic`, models | **how many dB each denoiser adds** to the received picture |

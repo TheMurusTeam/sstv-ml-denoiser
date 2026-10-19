@@ -5,15 +5,21 @@ with noise and without noise. This step makes the pairs from **your
 pictures**, with the real SSTV encoder and decoder of the radio, so no real
 received picture is needed: only many pictures.
 
-    python3 2_training_data/make_training_data.py --pictures FOLDER_OF_PICTURES
+    python3 2_training_data/make_training_data.py --pictures FOLDER [FOLDER ...]
+
+Several folders can be given, for example your photos, your QSL cards and
+the text pictures made by `make_text_pictures.py` (below):
+
+    python3 2_training_data/make_training_data.py --pictures ~/photos ~/qsl PICTURES_TEXT
 
 Do **step 1 first**: this step checks that no training picture is also a
 test picture.
 
 ## Which pictures
 
-- Any format (PNG, JPG…), any size, any shape, all in one folder
-  (subfolders are not read). They are prepared here, as in step 1.
+- Any format (PNG, JPG…), any size, any shape, in one or more folders
+  (subfolders are not read; files starting with `_`, like `_check.jpg`,
+  are skipped). They are prepared here, as in step 1.
 - **A few hundred at least.** More, and more varied, is better: landscapes,
   people, text, drawings and graphics, dark and bright pictures, skies.
   The network learns what pictures look like; whatever is missing (for
@@ -61,13 +67,54 @@ time; it can be deleted.
 
 | Option | Default | What |
 |---|---|---|
-| `--pictures` | – | the folder of your pictures |
+| `--pictures` | – | one or more folders of pictures |
 | `--out` | `DATA` | output folder |
 | `--modes-per-picture` | 2 | SSTV modes per picture |
 | `--variants` | 5 | noisy receptions per picture and mode |
 | `--threads` | all the cores | simulations at the same time |
 | `--seed` | 7 | the random choices: same pictures and same seed give the same data |
 | `--no-test-check` | off | skips the check against the test sets (not recommended) |
+
+## Pictures full of text – `make_text_pictures.py`
+
+Photos have little text, so a network trained on photos sees few letters and
+learns to soften them. SSTV pictures – QSL cards above all – are full of
+callsigns and reports. This script makes pictures like that, to add to your
+own:
+
+    python3 2_training_data/make_text_pictures.py --count 500 --backgrounds ~/photos
+
+Each picture (640×512, brought to 320×256 by step 2, so the letters are
+smooth as in a real picture) has:
+
+- a background: a piece of one of your photos (`--backgrounds`), or a colour
+  gradient, a flat colour, soft colour blobs, or black. Background photos
+  that are test pictures of step 1 are left out: hidden behind some text,
+  step 2 could not recognise them any more;
+- a big callsign (amateur like `IZ1ABC`, or CB like `1AT123`) and 2 to 6
+  more pieces of text: QSO words, reports, frequencies, dates, locators,
+  names – from big titles down to lines of 7–8 pixels;
+- for each piece its own font, colour and style: plain, outlined, with a
+  shadow, on a box, a little rotated; sometimes thin lines and frames, as on
+  QSL cards.
+
+The result is in `PICTURES_TEXT/`, with `_examples.jpg` to have a look. The
+same `--seed` gives the same pictures.
+
+| Option | Default | What |
+|---|---|---|
+| `--count` | 500 | how many pictures |
+| `--backgrounds` | – | a folder of photos for the backgrounds (optional) |
+| `--system-fonts` | off | also use the fonts installed on your computer, for more variety |
+| `--out` | `PICTURES_TEXT` | output folder |
+| `--seed` | 11 | the random choices |
+
+**How many?** Text should be a good share of the training, not all of it:
+about one text picture for every one or two photos is a reasonable start.
+The network must still learn photos.
+
+**Fonts:** the free fonts in `fonts/` (SIL Open Font License, see
+`fonts/FONTS.md`), plus any `.ttf`/`.otf` you add there.
 
 ## Why the clean picture is a received picture
 

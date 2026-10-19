@@ -34,13 +34,29 @@ How it learns
     - --identity (0.15): that share of the patches is a clean picture as
       input AND as target, so the network learns to leave clean pictures
       alone;
-    - every --val-every steps the network is measured on --val; when it is
-      the best so far, it is saved and exported at once, so an interrupted
-      training always leaves a usable model.
+    - every --val-every steps the network is measured on --val, on the whole
+      pictures and on their detail only (text, lines, edges: see
+      sstvml.detail_mask); when it is the best so far (--select), it is saved
+      and exported at once, so an interrupted training always leaves a
+      usable model.
+
+For text and fine detail (all off by default: the reference recipe)
+    --detail-share S  that share of the patches is taken where the clean
+                      picture has the most detail (the best of 8 random
+                      places), instead of anywhere: the network spends more
+                      of its training on letters and lines.  0.5 is a good try.
+    --edge-weight E   adds to the loss E x the difference between the edges
+                      of the output and of the clean picture (the differences
+                      between neighbour pixels, across and along the lines):
+                      softening a letter costs more.  0.5 is a good try.
+    --select detail   keeps the save that is best on the detail of the
+                      test pictures, instead of on the whole pictures.
+    None of them changes the network: the model has the same size and runs
+    at the same speed.
 
 Output in --out (default TRAINED/<channels>x<layers>)
     sstv_dnn_<C>x<L>.bin        the model (the best one on --val)
-    log.csv                     step, loss, validation PSNR
+    log.csv                     step, loss, validation PSNR (whole pictures, detail)
     best.pt, last.pt            PyTorch saves: the best model, and the state
                                 to go on from (--resume)
     check_in.png, check_torch.png   a picture and the PyTorch result, for
@@ -78,34 +94,69 @@ except ImportError:
 
 # ---- data ---------------------------------------------------------------------------
 
-class PairSet:
-    """All the pairs in memory (uint8); random patches on request"""
+DETAIL_TRIES = 8        # random places tried for a detail patch: the one with most detail wins
 
-    def __init__(self, pairs, identity=0.15):
-        self.items = []
+
+def detail_table(clean):
+    """Summed-area table of the detail mask: the detail pixels of any
+    rectangle are counted with 4 lookups"""
+    m = sstvml.detail_mask(clean).astype(np.int32)
+    t = np.zeros((m.shape[0] + 1, m.shape[1] + 1), np.int32)
+    t[1:, 1:] = m.cumsum(0).cumsum(1)
+    return t
+
+
+class PairSet:
+    """All the pairs in memory (uint8); random patches on request.
+
+    items:  (noisy, clean, detail table or None)
+    cleans: (clean, detail table or None), for the identity patches
+    masks:  the detail mask of each item (validation sets only)"""
+
+    def __init__(self, pairs, identity=0.15, detail_share=0.0, with_masks=False):
+        self.items, self.masks = [], []
         cache = {}
         for noisy, clean, _case in pairs:
             if clean not in cache:
-                cache[clean] = sstvml.load_rgb(clean)
-            x, y = sstvml.load_rgb(noisy), cache[clean]
+                y = sstvml.load_rgb(clean)
+                cache[clean] = (y, detail_table(y) if detail_share > 0 else None)
+            x, (y, table) = sstvml.load_rgb(noisy), cache[clean]
             h, w = min(x.shape[0], y.shape[0]), min(x.shape[1], y.shape[1])
-            self.items.append((x[:h, :w], y[:h, :w]))
+            self.items.append((x[:h, :w], y[:h, :w], table))
+            if with_masks:
+                self.masks.append(sstvml.detail_mask(y[:h, :w]))
         self.cleans = list(cache.values())
         self.identity = identity
+        self.detail_share = detail_share
+
+    def place(self, h, w, patch, table, rng):
+        """Top-left corner of a patch: anywhere, or (detail_share of the
+        times) the place with the most detail among DETAIL_TRIES random ones.
+        With detail_share 0 the random numbers drawn are exactly those of
+        the reference recipe."""
+        if self.detail_share > 0 and table is not None and rng.random() < self.detail_share:
+            best, best_n = None, -1
+            for _ in range(DETAIL_TRIES):
+                t, l = rng.randrange(h - patch + 1), rng.randrange(w - patch + 1)
+                n = table[t + patch, l + patch] - table[t, l + patch] - table[t + patch, l] + table[t, l]
+                if n > best_n:
+                    best, best_n = (t, l), n
+            return best
+        return rng.randrange(h - patch + 1), rng.randrange(w - patch + 1)
 
     def batch(self, size, patch, rng):
         xs = np.empty((size, patch, patch, 3), np.uint8)
         ys = np.empty_like(xs)
         for i in range(size):
             if self.cleans and rng.random() < self.identity:
-                y = self.cleans[rng.randrange(len(self.cleans))]
+                y, table = self.cleans[rng.randrange(len(self.cleans))]
                 x = y                       # a clean picture must come out unchanged
             else:
-                x, y = self.items[rng.randrange(len(self.items))]
+                x, y, table = self.items[rng.randrange(len(self.items))]
             h, w = x.shape[:2]
             if h < patch or w < patch:
                 raise ValueError("pictures smaller than the patch size")
-            top, left = rng.randrange(h - patch + 1), rng.randrange(w - patch + 1)
+            top, left = self.place(h, w, patch, table, rng)
             px, py = x[top:top + patch, left:left + patch], y[top:top + patch, left:left + patch]
             if rng.random() < 0.5:          # up/down mirror only (see the top of the file)
                 px, py = px[::-1], py[::-1]
@@ -151,6 +202,15 @@ class SSTVNet(nn.Module):
         return x - self.noise(x)
 
 
+def edge_loss(out, target):
+    """Mean absolute difference between the edges of out and of target: the
+    differences between neighbour pixels, along the lines (x) and across
+    them (y).  It grows when the output softens a letter or a line."""
+    dx = F.l1_loss(out[..., :, 1:] - out[..., :, :-1], target[..., :, 1:] - target[..., :, :-1])
+    dy = F.l1_loss(out[..., 1:, :] - out[..., :-1, :], target[..., 1:, :] - target[..., :-1, :])
+    return dx + dy
+
+
 def export(model, path):
     """Writes the model file read by src/sstv/sstv_dnn.c"""
     layers = []
@@ -176,15 +236,25 @@ def save_best(model, out, name, check_picture):
 
 @torch.no_grad()
 def validate(model, val, dev):
-    """Mean PSNR of the received pictures and of the network output, in dB"""
+    """Mean PSNR, in dB, of the received pictures and of the network output:
+    {"all": (received, network), "detail": (received, network)}, "detail"
+    measured only on the detail pixels (val.masks)"""
     model.eval()
-    before = after = 0.0
-    for x, y in val.items:
-        before += sstvml.psnr(x, y)
-        after += sstvml.psnr(to_picture(model(to_tensor(x[None], dev))), y)
+    sums = {"all": [0.0, 0.0, 0], "detail": [0.0, 0.0, 0]}
+    for k, (x, y, _table) in enumerate(val.items):
+        o = to_picture(model(to_tensor(x[None], dev)))
+        s = sums["all"]
+        s[0] += sstvml.psnr(x, y)
+        s[1] += sstvml.psnr(o, y)
+        s[2] += 1
+        m = val.masks[k] if k < len(val.masks) else None
+        if m is not None and m.any():
+            s = sums["detail"]
+            s[0] += sstvml.psnr_masked(x, y, m)
+            s[1] += sstvml.psnr_masked(o, y, m)
+            s[2] += 1
     model.train()
-    n = max(1, len(val.items))
-    return before / n, after / n
+    return {k: (v[0] / max(1, v[2]), v[1] / max(1, v[2])) for k, v in sums.items()}
 
 
 # ---- helpers ---------------------------------------------------------------------------------
@@ -226,8 +296,10 @@ def selftest_sets():
         x = np.clip(y + noise, 0, 255)
         pairs.append((x.astype(np.uint8), y.astype(np.uint8)))
     train, val = PairSet([]), PairSet([], identity=0)
-    train.items, train.cleans = pairs[:12], [p[1] for p in pairs[:12]]
-    val.items = pairs[12:]
+    train.items = [(x, y, None) for x, y in pairs[:12]]
+    train.cleans = [(y, None) for _x, y in pairs[:12]]
+    val.items = [(x, y, None) for x, y in pairs[12:]]
+    val.masks = [sstvml.detail_mask(y) for _x, y in pairs[12:]]
     return train, val
 
 
@@ -247,6 +319,12 @@ def main():
     ap.add_argument("--identity", type=float, default=0.15,
                     help="share of patches that are clean pictures, to be left unchanged (default 0.15)")
     ap.add_argument("--val-every", type=int, default=2000, help="steps between validations (default 2000)")
+    ap.add_argument("--detail-share", type=float, default=0.0,
+                    help="share of patches taken where the picture has most detail (default 0; try 0.5)")
+    ap.add_argument("--edge-weight", type=float, default=0.0,
+                    help="weight of the edge difference in the loss (default 0; try 0.5)")
+    ap.add_argument("--select", choices=["all", "detail"], default="all",
+                    help="keep the save best on the whole pictures (all, default) or on their detail")
     ap.add_argument("--out", help="output folder (default TRAINED/<channels>x<layers>)")
     ap.add_argument("--device", default="auto", help="auto, mps, cuda or cpu")
     ap.add_argument("--seed", type=int, default=1)
@@ -272,13 +350,16 @@ def main():
         if not vp:
             sys.exit("no validation pairs in %s: run step 1 first" % a.val)
         print("loading %d training pairs, %d validation pairs..." % (len(tp), len(vp)))
-        train, val = PairSet(tp, identity=a.identity), PairSet(vp, identity=0)
+        train = PairSet(tp, identity=a.identity, detail_share=a.detail_share)
+        val = PairSet(vp, identity=0, with_masks=True)
 
     model = SSTVNet(a.channels, a.layers).to(dev)
     nparam = sum(p.numel() for p in model.parameters())
     macs = sum(c.weight.numel() for c in model.convs) * sstvml.WIDTH * sstvml.HEIGHT
     print("network %d channels x %d layers: %d weights, %.2f G multiply-adds per 320x256 picture; device %s"
           % (a.channels, a.layers, nparam, macs / 1e9, dev))
+    print("detail patches %.2f, edge weight %.2f, best save chosen on: %s"
+          % (a.detail_share, a.edge_weight, "whole pictures" if a.select == "all" else "detail"))
 
     opt = torch.optim.Adam(model.parameters(), lr=a.lr)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=a.steps, eta_min=a.lr * 0.01)
@@ -294,25 +375,34 @@ def main():
         model.load_state_dict(ck["model"])
         opt.load_state_dict(ck["opt"])
         sched.load_state_dict(ck["sched"])
-        first, b0, best = ck["step"] + 1, ck["b0"], ck["best"]
+        if ck.get("select", "all") != a.select:
+            sys.exit("the save in %s chooses the best on '%s': resume with --select %s"
+                     % (a.out, ck.get("select", "all"), ck.get("select", "all")))
+        first, received, best = ck["step"] + 1, ck["received"] if "received" in ck else \
+            {"all": ck["b0"], "detail": ck["b0"]}, ck["best"]
         rng.setstate(ck["rng"])
         print("going on from step %d (best so far %.2f dB)" % (first - 1, best))
         log = open(os.path.join(a.out, "log.csv"), "a")
     else:
         if a.resume:
             print("nothing to resume in %s, starting from the beginning" % a.out)
-        b0, best = validate(model, val, dev)
-        print("validation: received pictures %.2f dB, network at start %.2f dB" % (b0, best))
+        v = validate(model, val, dev)
+        received = {k: v[k][0] for k in v}
+        best = v[a.select][1]
+        print("validation: received pictures %.2f dB (detail %.2f dB)" % (received["all"], received["detail"]))
         save_best(model, a.out, name, check_picture)
         log = open(os.path.join(a.out, "log.csv"), "w")
-        log.write("step,loss,val_psnr\n")
+        log.write("step,loss,val_psnr,val_detail_psnr\n")
 
     t0 = time.time()
     run = 0.0
     for step in range(first, a.steps + 1):
         xs, ys = train.batch(a.batch, a.patch, rng)
         x, y = to_tensor(xs, dev), to_tensor(ys, dev)
-        loss = F.l1_loss(model(x), y)
+        out = model(x)
+        loss = F.l1_loss(out, y)
+        if a.edge_weight > 0:
+            loss = loss + a.edge_weight * edge_loss(out, y)
         opt.zero_grad()
         loss.backward()
         opt.step()
@@ -324,21 +414,25 @@ def main():
             print("step %6d/%d  loss %.5f  %.1f min, %.0f min left" %
                   (step, a.steps, run, el / 60, el / done * (a.steps - step) / 60), flush=True)
         if step % a.val_every == 0 or step == a.steps:
-            _, v = validate(model, val, dev)
-            log.write("%d,%.6f,%.3f\n" % (step, run, v))
+            v = validate(model, val, dev)
+            log.write("%d,%.6f,%.3f,%.3f\n" % (step, run, v["all"][1], v["detail"][1]))
             log.flush()
             mark = ""
-            if v > best:
-                best = v
+            if v[a.select][1] > best:
+                best = v[a.select][1]
                 save_best(model, a.out, name, check_picture)
                 mark = "  (best: saved)"
-            print("  validation: %.2f dB, %+.2f dB over the received pictures%s" % (v, v - b0, mark), flush=True)
+            print("  validation: %.2f dB, %+.2f dB over the received pictures; detail %+.2f dB%s"
+                  % (v["all"][1], v["all"][1] - received["all"], v["detail"][1] - received["detail"], mark),
+                  flush=True)
             torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(),
-                        "step": step, "b0": b0, "best": best, "rng": rng.getstate(),
+                        "step": step, "b0": received["all"], "received": received, "best": best,
+                        "select": a.select, "rng": rng.getstate(),
                         "net": [a.channels, a.layers]}, last_path + ".tmp")
             os.replace(last_path + ".tmp", last_path)
 
-    print("\nbest validation %.2f dB (received %.2f dB, %+.2f dB)" % (best, b0, best - b0))
+    r = received[a.select]
+    print("\nbest validation (%s) %.2f dB (received %.2f dB, %+.2f dB)" % (a.select, best, r, best - r))
     print("model: %s" % os.path.join(a.out, name))
     print("next:  python3 4_check_and_score/check_c_matches_pytorch.py %s" % a.out)
 

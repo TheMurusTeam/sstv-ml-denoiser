@@ -49,12 +49,13 @@ The launchers install it. To do it yourself:
     network 20 channels x 6 layers: 15583 weights, 1.27 G multiply-adds per 320x256 picture; device mps
     step    100/200000  loss 0.04012  0.3 min, 610 min left
     ...
-      validation: 28.72 dB, +9.15 dB over the received pictures  (best: saved)
+      validation: 28.72 dB, +9.15 dB over the received pictures; detail +4.52 dB  (best: saved)
 
 - **loss:** how far the network is from the clean pictures in training. It
   goes down quickly, then slowly.
 - **validation:** the mean PSNR of the network's output on the test set, and
-  the gain over the received pictures: the number that matters. `(best:
+  the gain over the received pictures: the number that matters. Then the
+  gain on the detail of the pictures only (text, lines, edges). `(best:
   saved)` means it is the best so far and the model file has been written.
 
 ## What it writes (`TRAINED/<C>x<L>/`)
@@ -62,7 +63,7 @@ The launchers install it. To do it yourself:
 | File | What |
 |---|---|
 | `sstv_dnn_<C>x<L>.bin` | **the model**, the best one on the test set; written at every new best |
-| `log.csv` | step, loss, validation PSNR: open it in a spreadsheet to see when it stops improving |
+| `log.csv` | step, loss, validation PSNR of the whole pictures and of their detail: open it in a spreadsheet to see when it stops improving |
 | `best.pt`, `last.pt` | PyTorch saves: the best model, and the full state for `--resume` |
 | `check_in.png`, `check_torch.png` | a picture and the PyTorch result, for `4_check_and_score/check_c_matches_pytorch.py` |
 
@@ -142,9 +143,38 @@ Other choices, built in:
   save is kept. Never point `--train` at a test set: the scores would be
   meaningless.
 
+## Text and fine detail
+
+Three options, all off by default (the reference recipe), to make the
+network better at keeping text and thin lines. None of them changes the
+network: the model has the same size and runs at the same speed.
+
+| Option | Try | What it does |
+|---|---|---|
+| `--detail-share` | 0.5 | that share of the patches is taken where the clean picture has the most detail (the best of 8 random places) instead of anywhere. Most of a picture is smooth (sky, skin, backgrounds), so random patches show the network few letters |
+| `--edge-weight` | 0.5 | adds to the loss the difference between the **edges** of the output and of the clean picture (the differences between neighbour pixels, along and across the lines). Softening a letter costs more than with the plain L1 loss |
+| `--select detail` | | keeps the save that is best on the **detail** of the test pictures (`ALL detail`, see step 4), instead of on the whole pictures |
+
+"Detail" is the same everywhere in the package: the pixels next to a strong
+brightness step in the clean picture (letters, lines, contours), see
+`detail_mask` in `common/sstvml.py`.
+
+A good experiment, with text pictures in the data (step 2,
+`make_text_pictures.py`):
+
+    python3 3_train/train.py --detail-share 0.5 --edge-weight 0.5 --out TRAINED/20x6_text
+
+then compare it with the reference in step 6. Look at both rows, `ALL`
+and `ALL detail`: the aim is a clearly better `ALL detail` without losing
+much on `ALL`, and pictures where the text is sharper but **not changed**.
+A network pushed too hard on edges can start to "invent" strokes; a
+callsign that looks sharp but wrong is worse than one that is a little
+soft.
+
 ## What to look at in `log.csv`
 
-The `val_psnr` column should rise quickly and then flatten. If it is still
+The `val_psnr` column (whole pictures) and `val_detail_psnr` (detail only)
+should rise quickly and then flatten. If it is still
 rising at the end, more steps may help; if it went down at the end, the
 model file still holds the best one. A model trained on few pictures reaches
 its best early and then gets worse ("over-fitting"): add pictures.

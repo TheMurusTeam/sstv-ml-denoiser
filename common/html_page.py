@@ -103,7 +103,7 @@ def scores_table(result, title):
         best = max(r[n] for n in names)
         cells = "".join('<td class="%s">%+.2f</td>' % ("best" if r[n] == best else "", r[n]) for n in names)
         out.append('<tr class="%s"><td>%s</td><td>%d</td><td>%.2f</td>%s</tr>'
-                   % ("all" if case == "ALL" else "", esc(case), result["count"][case], r["received"], cells))
+                   % ("all" if case.startswith("ALL") else "", esc(case), result["count"][case], r["received"], cells))
     out.append("</table></div>")
     if result["clean"]:
         out.append('<p class="sub">Clean pictures left alone (PSNR dB, higher = less changed; above about 40 dB '

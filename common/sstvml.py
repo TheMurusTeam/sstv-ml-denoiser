@@ -71,11 +71,14 @@ def run_tool(args):
 # ---- pictures -------------------------------------------------------------------------------
 
 def list_pictures(folder):
-    """Picture files of a folder (not of its subfolders), sorted by name"""
+    """Picture files of a folder (not of its subfolders), sorted by name.
+    Files whose name starts with "." or "_" are skipped: hidden files, and
+    the check sheets the tools write next to their pictures (_check.jpg,
+    _examples.jpg)."""
     if not os.path.isdir(folder):
         return []
     return sorted(os.path.join(folder, f) for f in os.listdir(folder)
-                  if f.lower().endswith(PICTURE_EXT) and not f.startswith("."))
+                  if f.lower().endswith(PICTURE_EXT) and not f.startswith((".", "_")))
 
 
 def clean_name(path):
@@ -144,6 +147,47 @@ def psnr(a, b):
     """Peak signal to noise ratio in dB between two pictures of the same size
     (higher = more alike; 99 = identical)"""
     mse = float(np.mean((np.asarray(a, np.float64) - np.asarray(b, np.float64)) ** 2))
+    return 99.0 if mse < 1e-10 else 10 * np.log10(255.0 ** 2 / mse)
+
+
+# ---- the "detail" part of a picture: text, lines, edges ----------------------------------
+
+DETAIL_EDGE = 40        # brightness step between two neighbour pixels that makes an edge (0..255)
+
+
+def detail_mask(rgb):
+    """True where the picture has detail: pixels next to a strong brightness
+    step (letters, lines, contours), widened by one pixel all around.
+
+    It is computed on the CLEAN picture, so it marks where the detail really
+    is, not where the noise is.  Smooth areas (sky, skin, flat backgrounds)
+    are left out: the PSNR on this mask tells how well a denoiser keeps text
+    and fine lines, which the PSNR of the whole picture hides, because most
+    pixels of a picture are smooth."""
+    a = np.asarray(rgb, np.float32)
+    y = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+    edge = np.zeros(y.shape, bool)
+    gx = np.abs(y[:, 1:] - y[:, :-1]) > DETAIL_EDGE
+    gy = np.abs(y[1:, :] - y[:-1, :]) > DETAIL_EDGE
+    edge[:, 1:] |= gx
+    edge[:, :-1] |= gx
+    edge[1:, :] |= gy
+    edge[:-1, :] |= gy
+    wide = edge.copy()                  # widen by one pixel (3x3)
+    wide[1:, :] |= edge[:-1, :]
+    wide[:-1, :] |= edge[1:, :]
+    wide2 = wide.copy()
+    wide2[:, 1:] |= wide[:, :-1]
+    wide2[:, :-1] |= wide[:, 1:]
+    return wide2
+
+
+def psnr_masked(a, b, mask):
+    """PSNR (dB) only on the pixels where mask is True; None if the mask is empty"""
+    if not mask.any():
+        return None
+    d = np.asarray(a, np.float64)[mask] - np.asarray(b, np.float64)[mask]
+    mse = float(np.mean(d ** 2))
     return 99.0 if mse < 1e-10 else 10 * np.log10(255.0 ** 2 / mse)
 
 
