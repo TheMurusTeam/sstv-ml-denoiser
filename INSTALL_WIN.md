@@ -9,7 +9,7 @@ Prompt*. One line at a time. (PowerShell works too: see the note in step 4.)
 | Component | Version | Why this version |
 |---|---|---|
 | Windows | 10 or 11, **64-bit** | PyTorch exists only for 64-bit Windows |
-| **Python** | **3.12, 64-bit** (3.11 to 3.13 work too) | the current Pillow and PyTorch need at least 3.11; the very newest Python (3.14, 3.15) can wait a few months for ready-made packages, so 3.12 is the safe choice |
+| **Python** | **3.12, 64-bit** (3.10 to 3.13 work too) | 3.12 gets security fixes and has every package ready, PyTorch for Nvidia included; with an older Python pip picks by itself older versions of the packages, which do the same job here; the very newest Python (3.14, 3.15) can wait a few months for ready-made packages |
 | numpy | 2.x (anything from 1.24 works) | picture maths |
 | Pillow | the latest (10 or newer works) | reading and writing pictures |
 | The two C tools | the Windows zip of the GitHub Releases | the SSTV channel and the denoisers of the radio; no compiler needed |

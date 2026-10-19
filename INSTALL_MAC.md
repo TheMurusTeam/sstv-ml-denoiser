@@ -10,7 +10,7 @@ one line at a time.
 |---|---|---|
 | macOS | 12.3 or newer | needed by PyTorch to use the Apple GPU (training only) |
 | Xcode Command Line Tools | the one Apple offers | the C compiler, to build the two tools with `make` |
-| **Python** | **3.12** (3.11 to 3.13 work too) | the current Pillow and PyTorch need at least 3.11; the very newest Python (3.14, 3.15) can wait a few months for ready-made packages, so 3.12 is the safe choice |
+| **Python** | **3.12 recommended**; the Python 3.9 that comes with macOS works too (see step 3) | 3.12 still gets security fixes and the newest packages; the very newest Python (3.14, 3.15) can wait a few months for ready-made packages |
 | numpy | 2.x (anything from 1.24 works) | picture maths |
 | Pillow | the latest (10 or newer works) | reading and writing pictures |
 | PyTorch | the latest (only for step 3, the training) | the training, on the Apple GPU (MPS) |
@@ -43,6 +43,14 @@ already installed, nothing to do. Check:
 It prints `Apple clang version …`.
 
 ## 3. Python 3.12
+
+**Already have Python 3.9?** macOS gives a Python 3.9 with the command line
+tools of step 2 (`python3 --version` prints `Python 3.9.x`). It works for
+everything, the training too: pip picks by itself the last versions of
+numpy, Pillow and PyTorch made for it (older ones, which do the same job
+here). To use it, skip this step and in step 4 write `python3` where it says
+`python3.12`. Python 3.9 no longer gets security fixes, so 3.12 is better if
+you can install it.
 
 1. Go to https://www.python.org/downloads/macos/ and download the latest
    **Python 3.12.x** "macOS 64-bit universal2 installer" (it works on both
@@ -164,7 +172,7 @@ to 6.
 | `externally-managed-environment` | you are not in the private environment: `source .venv/bin/activate` |
 | `No module named numpy` (or `PIL`, `torch`) | same: activate the environment, then install again |
 | `certificate verify failed` | run *Install Certificates.command* in Applications → Python 3.12 |
-| `No matching distribution found for torch` | Python too new or too old for PyTorch: use 3.12 (step 3) and make the environment again (`rm -rf .venv`, then step 4) |
+| `No matching distribution found for torch` | Python too new for PyTorch (3.14, 3.15) or an Intel Mac: use 3.12 (step 3) and make the environment again (`rm -rf .venv`, then step 4); on an Intel Mac see step 7 |
 | `"sstv_denoise_tool" cannot be opened because the developer cannot be verified` | `xattr -dr com.apple.quarantine bin` (step 5) |
 | `bin/sstv_channel_sim is missing` | step 5 |
 | `GPU (MPS): False` on an Apple chip | macOS older than 12.3, or an Intel Python: reinstall Python from the universal2 installer |

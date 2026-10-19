@@ -26,6 +26,7 @@ pictures here is the same code that runs in the radio.
 | `5_real_pictures/` | **5. Real pictures**: a model on SSTV pictures you received, as the radio uses it | `RESULTS/real_pictures/…/index.html` |
 | `6_compare_models/` | **6. Compare** several models: scores and pictures side by side | `RESULTS/compare_models/index.html` |
 | `models/` | the reference model, `sstv_dnn_20x6.bin` (the one of the firmware), with its scores | |
+| `extras/` | tools for special pictures, e.g. cropping LOG11DX eQSL cards to their picture | |
 | `src/` | the C code: the radio's SSTV files and the two tools | `bin/` |
 | `common/` | Python code shared by the steps | |
 
@@ -35,10 +36,11 @@ top of the package: they can be deleted and made again at any time.
 
 ## What you need
 
-- **Python 3.11 or newer (3.12 recommended)** with **numpy** and
+- **Python 3.9 or newer (3.12 recommended)** with **numpy** and
   **Pillow** for every step; **PyTorch** for step 3 only
-  (`3_train/README.md`). **`INSTALL_MAC.md`** and **`INSTALL_WIN.md`** go
-  through the whole installation step by step.
+  (`3_train/README.md`). On an older Python, pip installs older versions of
+  the packages, which do the same job here. **`INSTALL_MAC.md`** and
+  **`INSTALL_WIN.md`** go through the whole installation step by step.
 - The two **C tools** in `bin/`: `sstv_channel_sim` (the SSTV channel) and
   `sstv_denoise_tool` (the denoisers of the radio). Either:
   - **download** them: on the GitHub *Releases* page, the zip for your
