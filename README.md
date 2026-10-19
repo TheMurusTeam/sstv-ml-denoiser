@@ -23,7 +23,7 @@ pictures here is the same code that runs in the radio.
 | `2_training_data/` | **2. Training data**: your pictures, brought to 320×256, received with and without noise; optionally pictures full of text | `DATA/clean`, `DATA/noisy` |
 | `3_train/` | **3. Training** with PyTorch (Mac GPU, Nvidia card) – channels, layers, steps explained | `TRAINED/<C>x<L>/sstv_dnn_<C>x<L>.bin` |
 | `4_check_and_score/` | **4. Check** that the C code matches PyTorch, and **score** models on the test sets | tables, `RESULTS/scores/` |
-| `5_real_pictures/` | **5. Real pictures**: a model on SSTV pictures you received, as the radio uses it | `RESULTS/real_pictures/…/index.html` |
+| `5_real_pictures/` | **5. Real pictures**: run model on SSTV pictures you received, as the radio uses it | `RESULTS/real_pictures/…/index.html` |
 | `6_compare_models/` | **6. Compare** several models: scores and pictures side by side | `RESULTS/compare_models/index.html` |
 | `models/` | the reference model, `sstv_dnn_20x6.bin` (the one of the firmware), with its scores | |
 | `extras/` | tools for special pictures, e.g. cropping LOG11DX eQSL cards to their picture | |
