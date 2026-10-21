@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Builds the two C tools (bin/sstv_channel_sim, bin/sstv_denoise_tool) for
 # Windows, macOS and Linux, so that users do not need a C compiler.

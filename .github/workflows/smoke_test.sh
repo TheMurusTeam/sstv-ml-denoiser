@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Short test of the freshly built tools (run by build-tools.yml):
 # one picture through the channel simulator, then the ML denoiser of the

@@ -124,8 +124,8 @@ The prepared pictures are kept (`TEST_SET/<set>/pictures_320`,
 ## Credits and license
 
 Written by **Hany El Imam** for the 1KO125 firmware of the Xiegu X6100.
-GNU GPL version 3 or later, with an additional term asking to keep the
-author attribution: see `NOTICE.md` and `LICENSE`. The reference pictures
+GNU LGPL version 2.1 or later, the license of the 1KO125 firmware: see
+`NOTICE.md` and `LICENSE`. The reference pictures
 have their own credits, in `1_test_set/reference_pictures/CREDITS.md`.
 
 This program comes with ABSOLUTELY NO WARRANTY.

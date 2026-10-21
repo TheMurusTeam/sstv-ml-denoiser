@@ -1,5 +1,5 @@
 @echo off
-rem SPDX-License-Identifier: GPL-3.0-or-later
+rem SPDX-License-Identifier: LGPL-2.1-or-later
 rem Copyright (C) 2026 Hany El Imam
 rem
 rem Step 3 on Windows with an Nvidia card: installs what is missing and trains.

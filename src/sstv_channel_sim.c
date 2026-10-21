@@ -1,5 +1,5 @@
 /*
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright (C) 2026 Hany El Imam - 1KO125 firmware for the Xiegu X6100
  *
  * SSTV channel simulator.
